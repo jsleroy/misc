@@ -21,8 +21,8 @@ parser = argparse.ArgumentParser(description=
 parser.add_argument('token', metavar='T', type=str, help='Deezer OAuth token')
 args = parser.parse_args()
 
-title = ""
-pattern = re.compile(r'''StreamTitle='([.*] )?(?P<title>[\w\W]*?)';''')
+prev_title = ""
+pattern = re.compile(r'''StreamTitle='(\[.*\] )?(?P<title>[\w\W\-]*?)';''')
 
 while True:
   request = urllib2.Request('http://www.ledjamradio.com/sound')
@@ -33,14 +33,7 @@ while True:
   if header is not None:
     metadata = int(header)
     content = response.read(metadata + 255)
-    t = re.search(pattern, content[metadata:]).group('title')
-
-    if title == t:
-      continue
-
-    title = t
-
-    print 'title:', title
+    title = re.search(pattern, content[metadata:]).group('title')
 
     try:
         artist, track = title.split(" - ", 1)
@@ -50,6 +43,13 @@ while True:
     artist = artist.strip()
     track = track.strip()
 
+    if title == prev_title:
+      continue
+
+    prev_title = title
+
+    print "title: '{0}' ({1} --- {2})".format(title, artist, track),
+
     url = 'http://api.deezer.com/search?q='
     url += urllib.quote('artist:"%s" track:"%s"' % (artist, track))
     response = urllib2.urlopen(url)
@@ -57,23 +57,22 @@ while True:
     response.close()
     result = json.loads(s)
 
-    # print json.dumps(result, sort_keys=True, indent=4, separators=(',', ': '))
-
     total = int(result["total"])
 
+    print total, 'found(s)'
+
     if total == 0:
-      print 'not found'
+      continue
 
-    else:
-      song = result["data"][0]["id"]
-      print 'song id:', song
+    song = result["data"][0]["id"]
+    print 'song id:', song
 
-      url = 'https://api.deezer.com/playlist/134107571/tracks?access_token=%s' \
-          % args.token
-      data = urllib.urlencode({'songs' : song})
-      req = urllib2.Request(url, data)
-      response = urllib2.urlopen(req)
+    url = 'https://api.deezer.com/playlist/134107571/tracks?access_token=%s' \
+        % args.token
+    data = urllib.urlencode({'songs' : song})
+    req = urllib2.Request(url, data)
+    response = urllib2.urlopen(req)
 
-      print response.read()
+    print response.read()
 
   time.sleep(20)
