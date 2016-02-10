@@ -9,15 +9,25 @@
 #-------------------------------------------------------------------------------
 
 import urllib2
+import re
+import argparse
 
-request = urllib2.Request('http://www.ledjamradio.com/sound')
+parser = argparse.ArgumentParser(description=
+  'display shoutcast stream "now playing" info')
+
+parser.add_argument('url', metavar='URL', type=str,
+    help='shoutcast stream url')
+
+args = parser.parse_args()
+
+pattern = re.compile(r'''StreamTitle='(\[.*\] )?(?P<title>[\w\W\-]*?)';''')
+
+request = urllib2.Request(args.url)
 request.add_header('Icy-MetaData', 1)
 response = urllib2.urlopen(request)
 header = response.headers.get('icy-metaint')
+
 if header is not None:
   metadata = int(header)
   content = response.read(metadata + 255)
-  title = content[metadata:].split("'")[1]
-  artist, track = title.split(" - ")
-  print artist.strip()
-  print track.strip()
+  print re.search(pattern, content[metadata:]).group('title')
