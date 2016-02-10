@@ -20,7 +20,7 @@ parser.add_argument('url', metavar='URL', type=str,
 
 args = parser.parse_args()
 
-pattern = re.compile(r'''StreamTitle='(\[.*\] )?(?P<title>[\w\W\-]*?)';''')
+pattern = re.compile(r'''StreamTitle='(?P<title>[\w\W\-]*?)';''')
 
 request = urllib2.Request(args.url)
 request.add_header('Icy-MetaData', 1)
