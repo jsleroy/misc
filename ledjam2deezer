@@ -25,54 +25,66 @@ prev_title = ""
 pattern = re.compile(r'''StreamTitle='(\[.*\] )?(?P<title>[\w\W\-]*?)';''')
 
 while True:
+  time.sleep(10)
+
   request = urllib2.Request('http://www.ledjamradio.com/sound')
   request.add_header('Icy-MetaData', 1)
-  response = urllib2.urlopen(request)
-  header = response.headers.get('icy-metaint')
 
-  if header is not None:
-    metadata = int(header)
-    content = response.read(metadata + 255)
-    title = re.search(pattern, content[metadata:]).group('title')
+  try:
+    response = urllib2.urlopen(request)
+  except:
+    continue
 
-    try:
-        artist, track = title.split(" - ", 1)
-    except:
-      continue
+  metadata = int(response.headers.get('icy-metaint'))
+  content = response.read(metadata + 255)
+  response.close()
+  title = re.search(pattern, content[metadata:]).group('title')
 
-    artist = artist.strip()
-    track = track.strip()
+  try:
+      artist, track = title.split(" - ", 1)
+  except:
+    continue
 
-    if title == prev_title:
-      continue
+  artist = artist.strip()
+  track = track.strip()
 
-    prev_title = title
+  if title == prev_title:
+    continue
 
-    print "title: '{0}' ({1} --- {2})".format(title, artist, track),
+  prev_title = title
 
-    url = 'http://api.deezer.com/search?q='
-    url += urllib.quote('artist:"%s" track:"%s"' % (artist, track))
+  print "title: '{0}' ({1} --- {2})".format(title, artist, track),
+
+  url = 'http://api.deezer.com/search?q=' \
+      + urllib.quote('artist:"%s" track:"%s"' % (artist, track))
+
+  try:
     response = urllib2.urlopen(url)
-    s = response.read().decode('utf-8')
-    response.close()
-    result = json.loads(s)
+  except:
+    continue
 
-    total = int(result["total"])
+  result = json.loads(response.read().decode('utf-8'))
+  response.close()
 
-    print total, 'found(s)'
+  total = int(result["total"])
 
-    if total == 0:
-      continue
+  print total, 'found(s)'
 
-    song = result["data"][0]["id"]
-    print 'song id:', song
+  if total == 0:
+    continue
 
-    url = 'https://api.deezer.com/playlist/134107571/tracks?access_token=%s' \
-        % args.token
-    data = urllib.urlencode({'songs' : song})
-    req = urllib2.Request(url, data)
+  song = result["data"][0]["id"]
+  print 'song id:', song
+
+  url = 'https://api.deezer.com/playlist/134107571/tracks?access_token=%s' \
+      % args.token
+  data = urllib.urlencode({'songs' : song})
+  req = urllib2.Request(url, data)
+
+  try:
     response = urllib2.urlopen(req)
+  except:
+    continue
+  print response.read()
+  response.close()
 
-    print response.read()
-
-  time.sleep(20)
