@@ -14,6 +14,11 @@ import json
 import re
 import time
 import argparse
+import socket
+
+TIMEOUT=60*4
+
+socket.setdefaulttimeout(TIMEOUT)
 
 parser = argparse.ArgumentParser(description=
   'fill Deezer playlist with songs from LeDjam Radio')
@@ -31,12 +36,17 @@ while True:
   request.add_header('Icy-MetaData', 1)
 
   try:
-    response = urllib2.urlopen(request)
+    response = urllib2.urlopen(request, timeout=TIMEOUT)
   except:
     continue
 
   metadata = int(response.headers.get('icy-metaint'))
-  content = response.read(metadata + 255)
+
+  try:
+    content = response.read(metadata + 255)
+  except:
+    continue
+
   response.close()
   title = re.search(pattern, content[metadata:]).group('title')
 
@@ -59,7 +69,7 @@ while True:
       + urllib.quote('artist:"%s" track:"%s"' % (artist, track))
 
   try:
-    response = urllib2.urlopen(url)
+    response = urllib2.urlopen(url, timeout=TIMEOUT)
   except:
     continue
 
@@ -82,7 +92,7 @@ while True:
   req = urllib2.Request(url, data)
 
   try:
-    response = urllib2.urlopen(req)
+    response = urllib2.urlopen(req, timeout=TIMEOUT)
   except:
     continue
   print response.read()
