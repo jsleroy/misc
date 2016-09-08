@@ -86,7 +86,7 @@ while True:
   song = result["data"][0]["id"]
   print 'song id:', song
 
-  url = 'https://api.deezer.com/playlist/134107571/tracks?access_token=%s' \
+  url = 'https://api.deezer.com/playlist/1661830661/tracks?access_token=%s' \
       % args.token
   data = urllib.urlencode({'songs' : song})
   req = urllib2.Request(url, data)
