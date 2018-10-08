@@ -1,0 +1,157 @@
+#!/usr/bin/env python
+
+import sys
+import argparse
+import math
+import struct
+
+parser = argparse.ArgumentParser(description='tractrix horn generator')
+parser.add_argument('--fc', type=float, required=True)
+parser.add_argument('--dt', type=float, required=True)
+parser.add_argument('--ratio', type=float, required=True)
+parser.add_argument('--step', type=int, required=True)
+
+args = parser.parse_args()
+
+fc = args.fc
+dt = args.dt
+ratio = args.ratio
+step = args.step
+
+# throat area
+at = dt ** 2
+
+# throat radius (round equivalent)
+rt = math.sqrt(at / math.pi)
+
+# mouth radius
+rm = 340 / (2 * math.pi * fc) / math.sqrt(1) * 1000
+
+# mouth area
+am = rm ** 2 * math.pi
+
+# mouth width
+wm = math.sqrt(am / ratio)
+
+# mouth height
+hm = wm * ratio
+
+# throat width
+wt = math.sqrt(at)
+
+# throat height
+ht = math.sqrt(at)
+
+# horn length
+l = rm * math.log((rm + math.sqrt((rm ** 2) - (rt ** 2))) / rt) - math.sqrt((rm ** 2) - (rt ** 2))
+
+# angle
+angle = math.atan((wm / 2 - wt / 2) / l) * 180 / math.pi
+
+# stretch factor
+stretch = 1 / math.cos(angle * math.pi / 180) * 100
+
+print "horn length:   %f mm" % l
+print "angle:         %f" % angle
+print "stretch:       %f %%" % stretch
+print ""
+print "throat area:   %f mm2" % at
+print "throat radius: %f mm" % rt
+print "throat width:  %f mm" % wt
+print ""
+print "mouth area:    %f mm2" % am
+print "mouth radius:  %f mm" % rm
+print "mouth width:   %f mm" % wm
+print "mouth height:  %f mm" % hm
+
+points = []
+
+for i in xrange(0,20,2):
+    points += [(-20 + i, wm / 2, -hm / 2), (-20 + i, -wm / 2, -hm / 2)]
+
+for s in xrange(step):
+    if s == step - 1:
+        r = rt
+    else:
+        r = rm - (rm - rt) / step * float(s)
+    a = r ** 2 * math.pi
+    dm = rm * math.log((rm + math.sqrt((rm ** 2) - (r ** 2))) / r) - math.sqrt((rm ** 2) - (r ** 2))
+    dt = l - dm
+    if s == 0:
+        w = wm
+        h = hm
+    elif s == step - 1:
+        w = wt
+        h = ht
+    else:
+        w = 2 * (math.tan(angle * math.pi / 180) * dt + wt / 2)
+        h = a / w
+    # print "%d %.1f %.1f %.1f %.1f %.1f %.1f" % (s, dm, dt, r, a, w, h)
+    # print "%f,%f,%f" % (dm, w, -h)
+
+    points += [(dm, w / 2, -h / 2), (dm, -w / 2, -h / 2)]
+
+for i in xrange(0,20,2):
+    points += [(dm + i, w / 2, -h / 2), (dm + i, -w / 2, -h / 2)]
+
+import pprint
+pprint.PrettyPrinter().pprint(points)
+
+ASCII_FACET = """facet normal 0 0 0
+outer loop
+vertex {face[0][0]:.4f} {face[0][1]:.4f} {face[0][2]:.4f}
+vertex {face[1][0]:.4f} {face[1][1]:.4f} {face[1][2]:.4f}
+vertex {face[2][0]:.4f} {face[2][1]:.4f} {face[2][2]:.4f}
+endloop
+endfacet
+"""
+
+class ASCII_STL_Writer:
+    """ Export 3D objects build of 3 or 4 vertices as ASCII STL file.
+    """
+    def __init__(self, stream):
+        self.fp = stream
+        self._write_header()
+
+    def _write_header(self):
+        self.fp.write("solid python\n")
+
+    def close(self):
+        self.fp.write("endsolid python\n")
+
+    def _write(self, face):
+        self.fp.write(ASCII_FACET.format(face=face))
+
+    def _split(self, face):
+        p1, p2, p3, p4 = face
+        return (p1, p2, p3), (p3, p4, p1)
+
+    def add_face(self, face):
+        """ Add one face with 3 or 4 vertices. """
+        if len(face) == 4:
+            face1, face2 = self._split(face)
+            self._write(face1)
+            self._write(face2)
+        elif len(face) == 3:
+            self._write(face)
+        else:
+            raise ValueError('only 3 or 4 vertices for each face')
+
+    def add_faces(self, faces):
+        """ Add many faces. """
+        for face in faces:
+            self.add_face(face)
+
+faces = []
+
+for i in xrange(0,len(points)-4,2):
+    faces.append([points[i], points[i+1], points[i+3], points[i+2]])
+
+with open('tractrix.stl', 'wb') as fp:
+    writer = ASCII_STL_Writer(fp)
+    writer.add_faces(faces)
+    writer.close()
+
+with open('tractrix.xyz', 'wb') as fp:
+    for point in points:
+        fp.write("%f,%f,%f\n" % (point[0], point[1], point[2]))
